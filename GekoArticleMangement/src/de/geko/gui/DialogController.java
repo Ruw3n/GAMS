@@ -1,9 +1,6 @@
 package de.geko.gui;
 
-import de.geko.application.Article;
-import de.geko.application.ArticleFactory;
-import de.geko.application.Category;
-import de.geko.application.CategoryComp;
+import de.geko.application.*;
 import de.geko.persistence.Database;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.value.ObservableValue;
@@ -30,11 +27,13 @@ import java.util.ResourceBundle;
  * Controlles fxml page and delegates action listener
  */
 public class DialogController implements Initializable {
-    @FXML
-    public TextField productSe;
 
     @FXML
-    protected Button createCSV;
+    public Pane rootPane;
+    @FXML
+    public TextField productSe;
+    @FXML
+    protected Button orderBtn;
 
     @FXML
     protected TextField itemnumber;
@@ -92,16 +91,17 @@ public class DialogController implements Initializable {
 
     @FXML
     protected TableView tableSe;
-
+    @FXML
+    protected Button structureBtn;
+    @FXML
+    protected Label subItemName;
 
     private ArrayList<Category> categories;
-
-
-    /**
-     * Creates csv-file
-     */
     @FXML
-    public void createCSVFile() {
+    protected Label itemName;
+
+    private void createCSV(CSVTypes type) {
+
         LocalDate date = LocalDate.now();
 
         ArrayList<String> addInfo = new ArrayList<>();
@@ -112,7 +112,7 @@ public class DialogController implements Initializable {
         }
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Erstelle CSV-Datei");
-        fileChooser.setInitialFileName("Bauteilgruppe_" + itemnumber.getText() + "_" + date + ".csv");
+        fileChooser.setInitialFileName(type.name() + "_btg_" + itemnumber.getText() + "_" + date + ".csv");
         File f;
         f = fileChooser.showSaveDialog(CurrentWindow.getInstance().getCurrStage());
 
@@ -124,8 +124,25 @@ public class DialogController implements Initializable {
             errorText.setText("");
             ArticleFactory articleFactory = new ArticleFactory(rootArticle);
             articleFactory.setAdditionalInfo(addInfo);
-            articleFactory.createCSVFile(f);
+            if (type == CSVTypes.structure_list) {
+                articleFactory.createHierarchyItemCSV(f);
+            } else if (type == CSVTypes.order_list) {
+                articleFactory.createOrderListCSV(f);
+            }
         }
+    }
+
+    @FXML
+    public void createOrderCSV() {
+        createCSV(CSVTypes.order_list);
+    }
+
+    /**
+     * Creates csv-file
+     */
+    @FXML
+    public void createStructureCSV() {
+        createCSV(CSVTypes.structure_list);
 
     }
 
@@ -196,7 +213,7 @@ public class DialogController implements Initializable {
 
             try {
                 Database.deleteSubProduct(itemId, subItemId);
-                successTextGr.setText("Unterartikel: " + subItemId + " wurde erfolgreich aus\nder Bauteilgruppe: " + itemId + " entfernt.");
+                successTextGr.setText("Aus\nder Bauteilgruppe: " + itemId + "wurde der Unterartikel " + subItemId + " erfolgriech entfernt.");
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -232,7 +249,7 @@ public class DialogController implements Initializable {
             }
             if (ok) {
                 try {
-                    Database.updateSubProduct(itemId, subItemId, amount, desc);
+                    Database.updateSubArticle(itemId, subItemId, amount, desc);
                     successTextGr.setText("Unterartikel erfolreich bearbeitet.");
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -324,7 +341,7 @@ public class DialogController implements Initializable {
 
             ArrayList<Long> ids = getIdsOfCategory(categorySe.getSelectionModel().getSelectedItem());
             ArrayList<Article> articles;
-            articles = (Database.searchProductsByCategory(ids.get(0)));
+            articles = (Database.searchArticlesByCategory(ids.get(0)));
 
 
             for (Article article : articles) {
@@ -351,6 +368,42 @@ public class DialogController implements Initializable {
             }
         }
         return ids;
+    }
+
+    @FXML
+    public void fillGrForm() {
+        boolean showSub = false;
+        amountGr.setText("");
+        descGr.setText("");
+        if (!itemnumber.getText().equals("")) {
+
+        }
+        if (!itemnumberGr.getText().equals("")) {
+            Article article = new Article(itemnumberGr.getText());
+            if (article.getName() != null) {
+                itemName.setText(article.getName());
+                showSub = true;
+            } else {
+                itemName.setText("");
+            }
+        }
+        if (!subItemnumberGr.getText().equals("")) {
+            Article subArticle = new Article(subItemnumberGr.getText());
+            if (subArticle.getName() != null) {
+                subItemName.setText(subArticle.getName());
+                if (showSub) {
+                    SubArticleRelation subArticleRelation = Database.getSubArticleRelation(itemnumberGr.getText(), subItemnumberGr.getText());
+                    if (subArticleRelation != null) {
+                        amountGr.setText(subArticleRelation.getAmount() + "");
+                        descGr.setText(subArticleRelation.getDescription());
+                    }
+                }
+            } else {
+                subItemName.setText("");
+            }
+
+        }
+
     }
 
 

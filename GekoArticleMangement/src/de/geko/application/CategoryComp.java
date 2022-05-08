@@ -2,6 +2,9 @@ package de.geko.application;
 
 import java.util.Comparator;
 
+/**
+ * Order Categories ascending by name
+ */
 public class CategoryComp implements Comparator<Category> {
     @Override
     public int compare(Category o1, Category o2) {

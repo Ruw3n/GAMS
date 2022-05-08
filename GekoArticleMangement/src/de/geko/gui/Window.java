@@ -23,7 +23,6 @@ public class Window extends Application {
         FXMLLoader loader = new FXMLLoader(getClass().getResource("mainWindow.fxml"));
         Parent root = loader.load();
         primaryStage.setScene(new Scene(root));
-        primaryStage.setResizable(false);
         CurrentWindow.getInstance().setCurrStage(primaryStage);
         primaryStage.show();
 

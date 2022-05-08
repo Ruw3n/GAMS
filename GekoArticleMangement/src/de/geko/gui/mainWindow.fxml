@@ -41,7 +41,7 @@
       fx:controller="de.geko.gui.DialogController">
 
     <children>
-        <AnchorPane prefHeight="423.0" prefWidth="640.0" VBox.vgrow="ALWAYS">
+        <AnchorPane fx:id="rootPane" prefHeight="423.0" prefWidth="640.0" VBox.vgrow="ALWAYS">
             <children>
                 <Label alignment="CENTER" layoutX="482.0" layoutY="26.0" prefHeight="31.0" prefWidth="317.0"
                        text="GEKO - Bauteilgruppen" textAlignment="CENTER">
@@ -137,9 +137,10 @@
                                                 </CheckBox>
                                             </children>
                                         </GridPane>
-                                        <Button fx:id="createCSV" alignment="CENTER" layoutX="559.0" layoutY="516.0"
-                                                mnemonicParsing="false" onAction="#createCSVFile" prefHeight="48.0"
-                                                prefWidth="164.0" text="Erstellen" textAlignment="CENTER">
+                                        <Button fx:id="structureBtn" alignment="CENTER" layoutX="296.0" layoutY="511.0"
+                                                mnemonicParsing="false" onAction="#createStructureCSV" prefHeight="48.0"
+                                                prefWidth="204.0" text="Erstelle Bauteilstruktur"
+                                                textAlignment="CENTER">
                                             <font>
                                                 <Font size="18.0"/>
                                             </font>
@@ -150,6 +151,13 @@
                                                 <Font size="14.0"/>
                                             </font>
                                         </Label>
+                                        <Button fx:id="orderBtn" layoutX="779.0" layoutY="511.0" mnemonicParsing="false"
+                                                onAction="#createOrderCSV" prefHeight="48.0" prefWidth="204.0"
+                                                text="Erstelle Lieferliste">
+                                            <font>
+                                                <Font size="18.0"/>
+                                            </font>
+                                        </Button>
                                     </children>
                                 </AnchorPane>
                             </content>
@@ -164,24 +172,21 @@
                                             </font>
                                         </Label>
                                         <TextField fx:id="itemnumberGr" alignment="TOP_LEFT" layoutX="275.0"
-                                                   layoutY="84.0"
-                                                   promptText="Itemnummer">
+                                                   layoutY="84.0" onKeyTyped="#fillGrForm" promptText="Itemnummer">
                                             <font>
                                                 <Font size="20.0"/>
                                             </font>
                                         </TextField>
-                                        <Rectangle arcHeight="5.0" arcWidth="5.0" fill="#dadada" height="378.0"
-                                                   layoutX="77.0"
-                                                   layoutY="170.0" stroke="TRANSPARENT" strokeType="INSIDE"
-                                                   width="1122.0"/>
+                                        <Rectangle arcHeight="5.0" arcWidth="5.0" fill="#dadada" height="407.0"
+                                                   layoutX="77.0" layoutY="141.0" stroke="TRANSPARENT"
+                                                   strokeType="INSIDE" width="1122.0"/>
                                         <Label layoutX="110.0" layoutY="213.0" text="Unterartikel - ID: ">
                                             <font>
                                                 <Font name="System Bold" size="20.0"/>
                                             </font>
                                         </Label>
                                         <TextField fx:id="subItemnumberGr" alignment="TOP_LEFT" layoutX="286.0"
-                                                   layoutY="206.0"
-                                                   promptText="Itemnummer">
+                                                   layoutY="206.0" onKeyTyped="#fillGrForm" promptText="Itemnummer">
                                             <font>
                                                 <Font size="20.0"/>
                                             </font>
@@ -191,8 +196,8 @@
                                                 <Font name="System Italic" size="20.0"/>
                                             </font>
                                         </Label>
-                                        <TextField fx:id="amountGr" layoutX="640.0" layoutY="206.0" prefHeight="24.0"
-                                                   prefWidth="56.0">
+                                        <TextField fx:id="amountGr" layoutX="640.0" layoutY="206.0" prefHeight="39.0"
+                                                   prefWidth="108.0">
                                             <font>
                                                 <Font size="20.0"/>
                                             </font>
@@ -210,15 +215,14 @@
                                             </font>
                                         </TextArea>
                                         <Button layoutX="789.0" layoutY="483.0" mnemonicParsing="false"
-                                                onAction="#updateSubArticle"
-                                                text="Unterartikel bearbeiten">
+                                                onAction="#updateSubArticle" text="Unterartikel bearbeiten">
                                             <font>
                                                 <Font size="16.0"/>
                                             </font>
                                         </Button>
                                         <Button fx:id="deleteSubGr" layoutX="1000.0" layoutY="483.0"
-                                                mnemonicParsing="false"
-                                                onAction="#removeSubArticle" text="Unterartikel löschen">
+                                                mnemonicParsing="false" onAction="#removeSubArticle"
+                                                text="Unterartikel löschen">
                                             <font>
                                                 <Font size="16.0"/>
                                             </font>
@@ -255,8 +259,7 @@
                                                 <Rectangle arcHeight="5.0" arcWidth="5.0" fill="#f8f8f8" height="338.0"
                                                            stroke="#ababab" strokeType="INSIDE" width="597.0"/>
                                                 <Label fx:id="conformationLabel" layoutX="69.0" layoutY="69.0"
-                                                       lineSpacing="3.0"
-                                                       prefHeight="88.0" prefWidth="459.0"
+                                                       lineSpacing="3.0" prefHeight="88.0" prefWidth="459.0"
                                                        text="Sind Sie sich sicher, dass Sie die gesamte Bauteilgruppe löschen möchten?"
                                                        wrapText="true">
                                                     <font>
@@ -264,26 +267,36 @@
                                                     </font>
                                                 </Label>
                                                 <Button fx:id="abortBtn" layoutX="199.0" layoutY="240.0"
-                                                        mnemonicParsing="false"
-                                                        text="Abbrechen">
+                                                        mnemonicParsing="false" text="Abbrechen">
                                                     <font>
                                                         <Font size="14.0"/>
                                                     </font>
                                                 </Button>
                                                 <Button fx:id="contBtn" layoutX="315.0" layoutY="240.0"
-                                                        mnemonicParsing="false"
-                                                        text="Fortfahren">
+                                                        mnemonicParsing="false" text="Fortfahren">
                                                     <font>
                                                         <Font size="14.0"/>
                                                     </font>
                                                 </Button>
                                             </children>
                                         </Pane>
+                                        <Label fx:id="itemName" layoutX="275.0" layoutY="53.0" prefHeight="31.0"
+                                               prefWidth="446.0">
+                                            <font>
+                                                <Font size="14.0"/>
+                                            </font>
+                                        </Label>
+                                        <Label fx:id="subItemName" layoutX="286.0" layoutY="175.0" prefHeight="31.0"
+                                               prefWidth="408.0">
+                                            <font>
+                                                <Font size="14.0"/>
+                                            </font>
+                                        </Label>
                                     </children>
                                 </AnchorPane>
                             </content>
                         </Tab>
-                        <Tab text="Lagerbestände">
+                        <Tab text="Lagerverwaltung">
                             <content>
                                 <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0">
                                     <children>
@@ -293,16 +306,14 @@
                                             </font>
                                         </Label>
                                         <TextField fx:id="itemnumber12" alignment="TOP_LEFT" layoutX="275.0"
-                                                   layoutY="84.0"
-                                                   promptText="Itemnummer">
+                                                   layoutY="84.0" promptText="Itemnummer">
                                             <font>
                                                 <Font size="20.0"/>
                                             </font>
                                         </TextField>
                                         <Button fx:id="removeInevntoryBtn" layoutX="518.0" layoutY="440.0"
-                                                mnemonicParsing="false"
-                                                onAction="#removeInventory" prefHeight="44.0" prefWidth="245.0"
-                                                text="Vom Bestand abziehen">
+                                                mnemonicParsing="false" onAction="#removeInventory" prefHeight="44.0"
+                                                prefWidth="245.0" text="Vom Bestand abziehen">
                                             <font>
                                                 <Font size="18.0"/>
                                             </font>
@@ -352,6 +363,11 @@
                                         </Label>
                                     </children>
                                 </AnchorPane>
+                            </content>
+                        </Tab>
+                        <Tab text="Bauteiltabelle">
+                            <content>
+                                <AnchorPane minHeight="0.0" minWidth="0.0" prefHeight="180.0" prefWidth="200.0"/>
                             </content>
                         </Tab>
                     </tabs>

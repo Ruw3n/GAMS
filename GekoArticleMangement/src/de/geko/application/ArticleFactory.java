@@ -7,31 +7,29 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
 /**
  * @author Ruwen Lamm
- * Creates a csv file based on recursive articles with subArticles
+ * Manages Articles and their relation to other articles
+ * Methodes to create CSV-files for ordersist and structure list based on one rootarticle
  */
 public class ArticleFactory {
 
     private final String spacing = "\t";
-    String[] defaultHeader = {"Artikelnummner", "Artikelname", "Anzahl", "Hinweis", "Lagerbestand", "Einheit", "Preis", "Einkaufspreis"};
+    private final String[] defaultHeader = {"Artikelnummner", "Artikelname", "Anzahl", "Hinweis", "Lagerbestand", "Einheit", "Preis", "Einkaufspreis", "Preissumme", "Einkauspreissumme"};
     private Article rootArticle;
     private String indentation = "\t";
     private ArrayList<String[]> dataAll = new ArrayList<>();
-    private String[] rowdata = new String[2];
     private double totalCostprice, totalPrice;
     private ArrayList<String> additionalInfo = new ArrayList<>();
     private boolean isRoot = true;
     private TreeMap<String, ArrayList<String>> deleteMap = new TreeMap<>();
+    private HashMap<Integer, Article> orderItems = new HashMap<>();
 
-    /**
-     * Constructs ArticleFactory
-     *
-     * @param rootArticle root Article, which contains recursive Articles
-     */
+
     public ArticleFactory(Article rootArticle) {
         this.rootArticle = rootArticle;
 
@@ -42,52 +40,105 @@ public class ArticleFactory {
     }
 
     /**
-     * creates a cvs file
-     *
-     * @param csvFile location/name for csv-file
+     * TODO: Add COSTPRICE and TOTALPRICE for only all Subarticles
      */
-    public void createCSVFile(File csvFile) {
-
+    private void generateCSVFile(File csvFile) {
         try {
 
 
             FileWriter outputFile = new FileWriter(csvFile);
             CSVWriter writer = new CSVWriter(outputFile);
             writer.writeNext(getHeader());
-            addFirstLevelData();
-            writer.writeNext(getColumn(rootArticle, 0));
 
+            writer.writeNext(getColumn(rootArticle, 0));
             writer.writeAll(dataAll);
             writer.writeNext(new String[]{"", "", "", ""});
             writer.writeNext(new String[]{"", "", "", ""});
             writer.writeNext(new String[]{"Gesamtverkaufspreis", "Gesamteinkaufspreis"});
             writer.writeNext(new String[]{"" + Math.round(totalPrice * 100.0) / 100.0, "" + Math.round(totalCostprice * 100.0) / 100.0});
+            writer.writeNext(new String[]{"", "", "", ""});
+            writer.writeNext(new String[]{"", "", "", ""});
+            writer.writeNext(new String[]{"Gesamtverkaufspreis Unterartikel", "Gesamteinkaufspreis Unterartikel"});
+            writer.writeNext(new String[]{"" + Math.round((totalPrice - rootArticle.getPrice1()) * 100.0) / 100.0, "" + Math.round((totalCostprice - rootArticle.getCostPrice()) * 100.0) / 100.0});
             writer.close();
 
         } catch (IOException e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * Creates a csv file where all the articles and their sub articles are listed
+     * The columns are based on the user input, but the default header and the corresponding values will always be generated
+     *
+     * @param csvFile
+     */
+    public void createHierarchyItemCSV(File csvFile) {
+        dataAll.clear();
+        addFirstLevelData();
+        generateCSVFile(csvFile);
 
 
     }
 
     /**
-     * Adds first level Articles to cvs-file
-     * Therefore only subArticles of root Article
+     * Creates a csv file where all the articles are listed, if an article exists more than once the amount values of that article will be updated accordingly
+     * The columns are based on the user input, but the default header and the corresponding values will always be generated
+     *
+     * @param csvFile
      */
-    private void addFirstLevelData() {
-        totalCostprice = 0.0;
-        totalPrice = 0.0;
+    public void createOrderListCSV(File csvFile) {
+        dataAll.clear();
+        orderItems.clear();
+        totalPrice = 0.0 + rootArticle.getPrice1();
+        totalCostprice = 0.0 + rootArticle.getCostPrice();
         rootArticle.setAmount(1);
 
-        for (Article a : rootArticle.getSubArticle()) {
-            String desc;
-            if (a.getSubArticleDescription() == null) {
-                desc = "";
+        fillOrderRecursive(rootArticle);
+        for (Map.Entry<Integer, Article> set : orderItems.entrySet()) {
+            totalCostprice += set.getValue().getCostPrice() * set.getValue().getAmount();
+            totalPrice += set.getValue().getPrice1() * set.getValue().getAmount();
+            dataAll.add(getColumn(set.getValue(), 3));
+        }
+        generateCSVFile(csvFile);
+
+
+    }
+
+    /**
+     * Do recursive search to get all articles and their sub articles.
+     * If an article occurs multiple times adjust the amount value in the hashmap
+     * The hashmap therfore only lists only one article
+     *
+     * @param article
+     */
+    private void fillOrderRecursive(Article article) {
+        for (Article a : article.getSubArticle()
+        ) {
+            if (orderItems.containsKey(a.hashCode())) {
+                orderItems.get(a.hashCode()).setAmount(a.getAmount() + orderItems.get(a.hashCode()).getAmount());
             } else {
-                desc = a.getSubArticleDescription();
+                orderItems.put(a.hashCode(), new Article(a));
             }
-            a.setSubArticleDescription(desc);
+            if (a.getSubArticle().size() > 0) {
+                fillOrderRecursive(a);
+            }
+
+        }
+
+    }
+
+    /**
+     * get frist level articles, and do recursive search
+     */
+    private void addFirstLevelData() {
+
+        rootArticle.setAmount(1);
+        totalPrice = 0.0 + rootArticle.getPrice1();
+        totalCostprice = 0.0 + rootArticle.getCostPrice();
+
+        for (Article a : rootArticle.getSubArticle()) {
+
             totalPrice += a.getPrice1() * a.getAmount();
             totalCostprice += a.getCostPrice() * a.getAmount();
 
@@ -99,17 +150,19 @@ public class ArticleFactory {
     }
 
     /**
-     * adds recursive SubArticles to data
+     * Do recursive search to get all articles and their sub articles.
+     * calculate indentation for each article that illustrates the parent and child relation
      *
-     * @param article Article
+     * @param article
      */
     private void addRecursiveData(Article article) {
         int newLength;
         for (Article a : article.getSubArticle()) {
+
             totalPrice += a.getPrice1() * a.getAmount();
             totalCostprice += a.getCostPrice() * a.getAmount();
-
             dataAll.add(getColumn(a, 2));
+
             if (a.getSubArticle().size() > 0) {
                 indentation += spacing;
                 addRecursiveData(a);
@@ -161,8 +214,10 @@ public class ArticleFactory {
     }
 
     /**
+     * returns the right formatted column for the csv list
+     *
      * @param article   article
-     * @param treeLevel 0: root element, 1:first level, 2:below first level
+     * @param treeLevel 0: root element, 1:first level, 2:below first level, 3: OrderList
      * @return String[] data for csv-file column(article data)
      */
     private String[] getColumn(Article article, int treeLevel) {
@@ -174,16 +229,20 @@ public class ArticleFactory {
         }
         if (treeLevel == 1) index = "----";
         if (treeLevel == 2) index = "----" + getLines(indentation.length());
+        if (treeLevel == 3) index = "";
 
         String[] column = new String[defaultHeader.length + additionalInfo.size()];
         column[0] = index + article.getArticleID();
         column[1] = article.getName() + "";
         column[2] = article.getAmount() + "";
-        column[3] = article.getSubArticleDescription();
+        column[3] = handelNullString(article.getSubArticleDescription());
         column[4] = article.getQuantity() + "";
         column[5] = article.getQuantityUnit();
         column[6] = article.getPrice1() + "";
         column[7] = article.getCostPrice() + "";
+        column[8] = Math.round(article.getTotalPrice() * 100.0) / 100.0 + "";
+        column[9] = Math.round(article.getTotalCostPrice() * 100.0) / 100.0 + "";
+
 
         String s;
 
@@ -244,6 +303,7 @@ public class ArticleFactory {
         }
         deleteMap.put(rootArticle.getArticleID(), arrayList);
     }
+
 
     public void deleteArticle() {
         deleteMap.clear();

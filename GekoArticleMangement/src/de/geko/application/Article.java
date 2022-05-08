@@ -20,6 +20,30 @@ public class Article {
     private Date dateAdded, dateModified;
     private long categoryID;
 
+    public Article(Article article) {
+        this.articleID = article.articleID;
+        this.amount = article.amount;
+        this.subArticle = article.subArticle;
+        this.price1 = article.price1;
+        this.price2 = article.price2;
+        this.price3 = article.price3;
+        this.price4 = article.price4;
+        this.price5 = article.price5;
+        this.costPrice = article.costPrice;
+        this.weight = article.weight;
+        this.quantity = article.quantity;
+        this.quantityUnit = article.quantityUnit;
+        this.name = article.name;
+        this.description = article.description;
+        this.note = article.note;
+        this.supplierNumber = article.supplierNumber;
+        this.modifiedBy = article.modifiedBy;
+        this.category = article.category;
+        this.subArticleDescription = article.subArticleDescription;
+        this.dateAdded = article.dateAdded;
+        this.dateModified = article.dateModified;
+        this.categoryID = article.categoryID;
+    }
 
     public Article(String articleID) {
         this.articleID = articleID;
@@ -228,5 +252,13 @@ public class Article {
             e.printStackTrace();
         }
 
+    }
+
+    public double getTotalCostPrice() {
+        return amount * costPrice;
+    }
+
+    public double getTotalPrice() {
+        return amount * price1;
     }
 }

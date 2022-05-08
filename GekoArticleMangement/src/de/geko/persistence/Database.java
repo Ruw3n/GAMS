@@ -2,6 +2,7 @@ package de.geko.persistence;
 
 import de.geko.application.Article;
 import de.geko.application.Category;
+import de.geko.application.SubArticleRelation;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -12,6 +13,7 @@ import java.util.ArrayList;
 /**
  * @author Ruwen Lamm
  * Fetches Articles From Database and stores them in ArrayList
+ * Also contains further operations that manipulate Article Objetcs and in the database
  */
 public class Database {
     private static ArrayList<Article> articles = new ArrayList<>();
@@ -19,11 +21,11 @@ public class Database {
     private int counter = 0;
 
     /**
-     * Perform recursive product-search and safe articles in ArrayList with the corresponding sub-articles
+     * Perform recursive product-search and store articles in ArrayList with the corresponding sub-articles
      *
-     * @param itemNumber root article-ID
+     * @param rootArticleID root article-ID
      */
-    public static void recursiveProductSearchRoot(String itemNumber) {
+    public static void recursiveProductSearchRoot(String rootArticleID) {
 
         Connection conn = ConnectionManager.getConnection();
         String query = "SELECT * FROM PART_LI con JOIN FKT_PRODUCT pro on(pro.ITEMNUMBER = con.ITEMNUMBER) where con.ZSB =?";
@@ -31,7 +33,7 @@ public class Database {
 
 
         try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            stmt.setString(1, itemNumber);
+            stmt.setString(1, rootArticleID);
             ResultSet rs = stmt.executeQuery();
 
 
@@ -57,6 +59,7 @@ public class Database {
                     iContains = getIndexOfArticle(rs.getString(contains));
 
                 }
+
                 //Adds SubArticle to Article
                 articles.get(iItem).addSubItem(articles.get(iContains));
 
@@ -74,7 +77,7 @@ public class Database {
     }
 
     /**
-     * @param articleID
+     * @param articleID article Id
      * @return -1 => ArrayList does not contain Article
      * else => ArrayListIndex of article
      */
@@ -165,11 +168,15 @@ public class Database {
 
     }
 
-    public static boolean doesArticleExist(String itemNumber) {
+    /**
+     * @param articleID article id
+     * @return true if article exists in the product table else false
+     */
+    public static boolean doesArticleExist(String articleID) {
         Connection conn = ConnectionManager.getConnection();
         String sql = "SELECT NAME FROM FKT_PRODUCT WHERE ITEMNUMBER=?";
         try (PreparedStatement statement = conn.prepareStatement(sql)) {
-            statement.setString(1, itemNumber);
+            statement.setString(1, articleID);
             ResultSet rs = statement.executeQuery();
             if (rs.next())
                 return true;
@@ -180,12 +187,17 @@ public class Database {
         return false;
     }
 
-    private static boolean doesSubArticleExist(String itemNumber, String subItemNumber) {
+    /**
+     * @param articleID    article id
+     * @param subArticleID sub article id
+     * @return true if article contains the sub article, else false
+     */
+    private static boolean doesSubArticleExist(String articleID, String subArticleID) {
         Connection conn = ConnectionManager.getConnection();
         String sql = "SELECT * FROM PART_LI WHERE ZSB=? AND ITEMNUMBER=?";
         try (PreparedStatement statement = conn.prepareStatement(sql)) {
-            statement.setString(1, itemNumber);
-            statement.setString(2, subItemNumber);
+            statement.setString(1, articleID);
+            statement.setString(2, subArticleID);
             ResultSet rs = statement.executeQuery();
             if (rs.next())
                 return true;
@@ -196,19 +208,27 @@ public class Database {
         return false;
     }
 
-    public static void updateSubProduct(String itemNumber, String subItemNumber, double amount, String desc) {
+    /**
+     * updates the sub article relation int the given relation table (PART_LI)
+     *
+     * @param articleID
+     * @param subArticleID
+     * @param amount
+     * @param desc
+     */
+    public static void updateSubArticle(String articleID, String subArticleID, double amount, String desc) {
         String sql = "UPDATE PART_LI SET MENGE=?, NOTE=? WHERE ZSB=? AND ITEMNUMBER =?";
         Connection conn = ConnectionManager.getConnection();
-        if (!(doesArticleExist(itemNumber) && doesArticleExist(subItemNumber)))
+        if (!(doesArticleExist(articleID) && doesArticleExist(subArticleID)))
             throw new IllegalArgumentException("Unterartikel und/oder Überartikel sind\n nicht im Lagerbestand.");
-        else if (!doesSubArticleExist(itemNumber, subItemNumber))
+        else if (!doesSubArticleExist(articleID, subArticleID))
             throw new IllegalArgumentException("Unterartikel und/oder Überartikel bilden keine Bauteilgruppe.");
         else {
             try (PreparedStatement preparedStatement = conn.prepareStatement(sql)) {
                 preparedStatement.setDouble(1, amount);
                 preparedStatement.setString(2, desc);
-                preparedStatement.setString(3, itemNumber);
-                preparedStatement.setString(4, subItemNumber);
+                preparedStatement.setString(3, articleID);
+                preparedStatement.setString(4, subArticleID);
                 preparedStatement.execute();
 
             } catch (SQLException e) {
@@ -218,6 +238,9 @@ public class Database {
         }
     }
 
+    /**
+     * @return all existing categories from the database table (FKT_CATEGORY)
+     */
     public static ArrayList<Category> getAllCategories() {
         ArrayList<Category> categories = new ArrayList<>();
         String sql = "SELECT ID,NAME,FK_PARENT_CATEGORY FROM FKT_CATEGORY";
@@ -234,7 +257,11 @@ public class Database {
 
     }
 
-    public static ArrayList<Article> searchProductsByCategory(long categoryID) {
+    /**
+     * @param categoryID category id
+     * @return All articles that correspond to the category
+     */
+    public static ArrayList<Article> searchArticlesByCategory(long categoryID) {
         ArrayList<Article> articles = new ArrayList<>();
         String sql = "SELECT ITEMNUMBER FROM FKT_PRODUCT WHERE FK_CATEGORY=?";
         Connection conn = ConnectionManager.getConnection();
@@ -250,6 +277,33 @@ public class Database {
             e.printStackTrace();
         }
         return articles;
+    }
+
+    /**
+     * @param articleID    article id
+     * @param subArticleID article id
+     * @return get sub Article relation from Database (PART_LI)
+     */
+    public static SubArticleRelation getSubArticleRelation(String articleID, String subArticleID) {
+
+        Connection conn = ConnectionManager.getConnection();
+        String sql = "SELECT * FROM PART_LI WHERE ZSB=? AND ITEMNUMBER=?";
+        try (PreparedStatement statement = conn.prepareStatement(sql)) {
+            statement.setString(1, articleID);
+            statement.setString(2, subArticleID);
+            ResultSet rs = statement.executeQuery();
+            if (rs.next()) {
+                return new SubArticleRelation(rs.getString("note"), rs.getString("ZSB"), rs.getString("ITEMNUMBER"), rs.getDouble("MENGE"));
+            }
+
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+
+
+        return null;
+
     }
 
 
