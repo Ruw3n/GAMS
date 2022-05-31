@@ -2,7 +2,7 @@
 
 **In cooperation with Geko Maschienenbau GmbH Sehnde.** https://www.geko-bau.de/geko-bau.html
 
-**Conceptualized and developed by Ruwen Lamm.**
+**Conceptualized and developed by Ruwen Lamm ruwen_lamm@web.de.**
 
 ## Introduction
 
