@@ -19,6 +19,7 @@ import javafx.util.Callback;
 import java.io.File;
 import java.net.URL;
 import java.time.LocalDate;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.ResourceBundle;
 
@@ -34,71 +35,59 @@ public class DialogController implements Initializable {
     public TextField productSe;
     @FXML
     protected Button orderBtn;
-
     @FXML
     protected TextField itemnumber;
-
     @FXML
     protected Label errorText;
-
     @FXML
     protected Label errorTextInv;
-
     @FXML
     protected GridPane addInfoGrid;
-
     @FXML
     protected TextField itemnumberInv;
-
     @FXML
     protected TextField itemnumberGr;
-
     @FXML
     protected Label errorTextGr;
-
     @FXML
     protected TextField subItemnumberGr;
-
     @FXML
     protected TextField amountGr;
-
     @FXML
     protected TextArea descGr;
-
     @FXML
     protected Button addSubGr;
-
     @FXML
     protected Button deleteSubGr;
-
     @FXML
     protected Label successTextGr;
-
     @FXML
     protected Label successTextInv;
-
     @FXML
     protected Pane confPane;
-
     @FXML
     protected Button abortBtn;
-
     @FXML
     protected Button contBtn;
-
     @FXML
     protected ChoiceBox<String> categorySe;
-
     @FXML
     protected TableView tableSe;
     @FXML
     protected Button structureBtn;
     @FXML
     protected Label subItemName;
-
-    private ArrayList<Category> categories;
     @FXML
     protected Label itemName;
+    @FXML
+    protected TableView tableInv;
+    @FXML
+    protected Spinner<Integer> layerGr;
+    @FXML
+    protected Spinner<Integer> layerCSV;
+
+    private ArrayList<Category> categories;
+
 
     private void createCSV(CSVTypes type) {
 
@@ -115,9 +104,13 @@ public class DialogController implements Initializable {
         fileChooser.setInitialFileName(type.name() + "_btg_" + itemnumber.getText() + "_" + date + ".csv");
         File f;
         f = fileChooser.showSaveDialog(CurrentWindow.getInstance().getCurrStage());
-
-        Article rootArticle = Database.getArticleTreeRoot(itemnumber.getText());
-
+        long start = ZonedDateTime.now().toInstant().toEpochMilli();
+        //Article rootArticle = Database.getArticleTreeRoot(itemnumber.getText());
+        Article rootArticle = Database.getArticleTreeRootFast(itemnumber.getText());
+        System.out.println(rootArticle.getSubArticle().size());
+        long end = ZonedDateTime.now().toInstant().toEpochMilli();
+        System.out.println(end - start + " milliseconds to fetch from database");
+        int layer = layerCSV.getValue();
         if (rootArticle == null) {
             errorText.setText("Bauteilgruppe existiert nicht!");
         } else {
@@ -125,9 +118,9 @@ public class DialogController implements Initializable {
             ArticleFactory articleFactory = new ArticleFactory(rootArticle);
             articleFactory.setAdditionalInfo(addInfo);
             if (type == CSVTypes.structure_list) {
-                articleFactory.createHierarchyItemCSV(f);
+                articleFactory.createHierarchyItemCSV(f, layer);
             } else if (type == CSVTypes.order_list) {
-                articleFactory.createOrderListCSV(f);
+                articleFactory.createOrderListCSV(f, layer);
             }
         }
     }
@@ -155,6 +148,7 @@ public class DialogController implements Initializable {
         String itemId = itemnumberGr.getText();
         String subItemId = subItemnumberGr.getText();
         String desc = descGr.getText();
+        int layer = layerGr.getValue();
         if (itemId.equals("") || subItemId.equals("")) {
             errorTextGr.setText("Bitte beide Felder\n(Bauteilgruppe und Unterartikel) ausfüllen.");
         } else {
@@ -169,7 +163,7 @@ public class DialogController implements Initializable {
             }
             try {
                 if (ok) {
-                    Database.addSubProduct(itemId, subItemId, amount, desc);
+                    Database.addSubProduct(itemId, subItemId, amount, desc, layer);
 
                     successTextGr.setText("Unterartikel: " + subItemId + "\nwurde erfolgreich der Bauteilgruppe: " + itemId + " hinzugefügt.");
                 }
@@ -188,12 +182,27 @@ public class DialogController implements Initializable {
     @FXML
     public void removeInventory() {
         Article rootArticle = Database.getArticleTreeRoot(itemnumberInv.getText());
+        ObservableList<ObservableList> data = FXCollections.observableArrayList();
+        System.out.println(itemnumberInv.getText());
+
         if (rootArticle == null) {
             errorTextInv.setText("Bauteilgruppe existiert nicht!");
         } else {
+            tableInv.setVisible(true);
+
             ArticleFactory articleFactory = new ArticleFactory(rootArticle);
             articleFactory.removeFromInventory(rootArticle);
-            successTextInv.setText("Lagerbestände der Bauteilgruppe: " + itemnumberInv.getText() + " erfolgreich abgezogen.");
+
+            for (Article a : articleFactory.getArticlesInvLessZero()) {
+                ObservableList<String> row = FXCollections.observableArrayList();
+                row.add(a.getArticleID());
+                row.add(a.getName());
+                row.add(a.getQuantity() + "");
+                data.add(row);
+            }
+            tableInv.setItems(data);
+
+            successTextInv.setText("Lagerbestände der Bauteilgruppe: " + itemnumberInv.getText() + " erfolgreich abgezogen.\n Alle Bauteile, welche nun einen Lagebestand <0 werden nun in der Tabelle angezeigt");
 
         }
 
@@ -233,6 +242,7 @@ public class DialogController implements Initializable {
         String subItemId = subItemnumberGr.getText();
         String itemId = itemnumberGr.getText();
         String desc = descGr.getText();
+        int layer = layerGr.getValue();
         successTextGr.setText("");
         errorTextGr.setText("");
         if (itemId.equals("") || subItemId.equals("")) {
@@ -249,7 +259,7 @@ public class DialogController implements Initializable {
             }
             if (ok) {
                 try {
-                    Database.updateSubArticle(itemId, subItemId, amount, desc);
+                    Database.updateSubArticle(itemId, subItemId, amount, desc, layer);
                     successTextGr.setText("Unterartikel erfolreich bearbeitet.");
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -288,6 +298,13 @@ public class DialogController implements Initializable {
 
     @Override
     public void initialize(URL fxmlFileLocation, ResourceBundle resources) {
+        SpinnerValueFactory spinnerValueFactoryGr = new SpinnerValueFactory.IntegerSpinnerValueFactory(-1, 4, -1);
+        SpinnerValueFactory spinnerValueFactoryCSV = new SpinnerValueFactory.IntegerSpinnerValueFactory(-1, 4, -1);
+
+        layerGr.setValueFactory(spinnerValueFactoryGr);
+        layerCSV.setValueFactory(spinnerValueFactoryCSV);
+        tableInv.setVisible(true);
+        tableInv.setEditable(true);
         categories = Database.getAllCategories();
         categories.sort(new CategoryComp());
         ObservableList<String> categoryNames = FXCollections.observableArrayList();
@@ -297,14 +314,21 @@ public class DialogController implements Initializable {
         categorySe.setItems(categoryNames);
 
         int i = 0;
-        ArrayList<String> columNames = new ArrayList<>();
-        columNames.add("BauteilID");
-        columNames.add("Name");
-        columNames.add("Beschreibung");
-        columNames.add("Kategorie");
-        columNames.add("Anzahl");
-        columNames.add("Einheit");
-        for (String s : columNames) {
+        ArrayList<String> columNamesSearch = new ArrayList<>();
+        columNamesSearch.add("BauteilID");
+        columNamesSearch.add("Name");
+        columNamesSearch.add("Beschreibung");
+        columNamesSearch.add("Kategorie");
+        columNamesSearch.add("Anzahl");
+        columNamesSearch.add("Einheit");
+
+        ArrayList<String> columNamesInv = new ArrayList<>();
+        columNamesInv.add("BauteilID");
+        columNamesInv.add("Name");
+        columNamesInv.add("Neuer Lagerbestand");
+
+
+        for (String s : columNamesSearch) {
             final int j = i;
 
             TableColumn tc = new TableColumn(s);
@@ -315,7 +339,19 @@ public class DialogController implements Initializable {
             i++;
         }
         tableSe.setEditable(true);
-         
+        i = 0;
+        for (String s : columNamesInv) {
+            final int j = i;
+
+            TableColumn tc = new TableColumn(s);
+            tc.setCellValueFactory((Callback<CellDataFeatures<ObservableList, String>, ObservableValue<String>>) param -> new SimpleStringProperty(param.getValue().get(j).toString()));
+            tableInv.getColumns().add(tc);
+            if (i > 1)
+                tc.setEditable(true);
+            i++;
+        }
+        tableInv.setEditable(false);
+
 
     }
 
@@ -375,9 +411,7 @@ public class DialogController implements Initializable {
         boolean showSub = false;
         amountGr.setText("");
         descGr.setText("");
-        if (!itemnumber.getText().equals("")) {
 
-        }
         if (!itemnumberGr.getText().equals("")) {
             Article article = new Article(itemnumberGr.getText());
             if (article.getName() != null) {
@@ -396,6 +430,7 @@ public class DialogController implements Initializable {
                     if (subArticleRelation != null) {
                         amountGr.setText(subArticleRelation.getAmount() + "");
                         descGr.setText(subArticleRelation.getDescription());
+                        layerGr.getValueFactory().setValue(subArticleRelation.getLayer());
                     }
                 }
             } else {

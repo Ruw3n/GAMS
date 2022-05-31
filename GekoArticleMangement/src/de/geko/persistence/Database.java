@@ -9,6 +9,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * @author Ruwen Lamm
@@ -19,6 +20,7 @@ public class Database {
     private static ArrayList<Article> articles = new ArrayList<>();
     private static boolean rootExist = false;
     private int counter = 0;
+    private static HashMap<String, Article> articleHashMap = new HashMap<>();
 
     /**
      * Perform recursive product-search and store articles in ArrayList with the corresponding sub-articles
@@ -28,7 +30,7 @@ public class Database {
     public static void recursiveProductSearchRoot(String rootArticleID) {
 
         Connection conn = ConnectionManager.getConnection();
-        String query = "SELECT * FROM PART_LI con JOIN FKT_PRODUCT pro on(pro.ITEMNUMBER = con.ITEMNUMBER) where con.ZSB =?";
+        String query = "SELECT * FROM PART_LI con JOIN FKT_PRODUCT pro on(pro.ITEMNUMBER = con.ITEMNUMBER) where con.ZSB =? and pro.deleted = false";
         int iItem, iContains;
 
 
@@ -44,18 +46,19 @@ public class Database {
                 String contains = "ITEMNUMBER";
                 String amount = "MENGE";
                 String desc = "note";
+                String layer = "EBENE";
 
                 iItem = getIndexOfArticle(rs.getString(item));
                 iContains = getIndexOfArticle(rs.getString(contains));
                 // ArrayList does not contain Article
                 if (iItem == -1) {
-                    articles.add(new Article(rs.getString(item), rs.getDouble(amount), rs.getString(desc)));
+                    articles.add(new Article(rs.getString(item), rs.getDouble(amount), rs.getString(desc), rs.getInt(layer)));
                     iItem = getIndexOfArticle(rs.getString(item));
 
                 }
                 // ArrayList does not contain subArticle
                 if (iContains == -1) {
-                    articles.add(new Article(rs.getString(contains), rs.getDouble(amount), rs.getString(desc)));
+                    articles.add(new Article(rs.getString(contains), rs.getDouble(amount), rs.getString(desc), rs.getInt(layer)));
                     iContains = getIndexOfArticle(rs.getString(contains));
 
                 }
@@ -108,6 +111,13 @@ public class Database {
             return null;
     }
 
+    public static Article getArticleTreeRootFast(String articleID) {
+        articleHashMap.clear();
+        recursiveProductSearchRootFast(articleID);
+        return articleHashMap.get(articleID);
+
+    }
+
     /**
      * adds sub article to article
      * NOTE: booth articles must exist in Product-table(FKT_PRODUCT) in Database
@@ -117,19 +127,20 @@ public class Database {
      * @param amount       amount of subArticle
      * @param desc         description
      */
-    public static void addSubProduct(String articleID, String subArticleID, double amount, String desc) {
+    public static void addSubProduct(String articleID, String subArticleID, double amount, String desc, int layer) {
         if (!(doesArticleExist(articleID) && doesArticleExist(subArticleID)))
             throw new IllegalArgumentException("Unterartikel und/oder Überartikel sind\nnicht im Lagerbestand.");
         else if (doesSubArticleExist(articleID, subArticleID))
             throw new IllegalArgumentException("Unterartikel ist bereits der\nBauteilgruppe untergeordent.");
         else {
             Connection conn = ConnectionManager.getConnection();
-            String sql = "INSERT INTO PART_LI VALUES (?,?,?,?)";
+            String sql = "INSERT INTO PART_LI VALUES (?,?,?,?,?)";
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                 stmt.setString(1, articleID);
                 stmt.setString(2, subArticleID);
                 stmt.setDouble(3, amount);
                 stmt.setString(4, desc);
+                stmt.setInt(5, layer);
                 stmt.execute();
 
 
@@ -216,8 +227,8 @@ public class Database {
      * @param amount
      * @param desc
      */
-    public static void updateSubArticle(String articleID, String subArticleID, double amount, String desc) {
-        String sql = "UPDATE PART_LI SET MENGE=?, NOTE=? WHERE ZSB=? AND ITEMNUMBER =?";
+    public static void updateSubArticle(String articleID, String subArticleID, double amount, String desc, int layer) {
+        String sql = "UPDATE PART_LI SET MENGE=?, NOTE=?, EBENE=? WHERE ZSB=? AND ITEMNUMBER =?";
         Connection conn = ConnectionManager.getConnection();
         if (!(doesArticleExist(articleID) && doesArticleExist(subArticleID)))
             throw new IllegalArgumentException("Unterartikel und/oder Überartikel sind\n nicht im Lagerbestand.");
@@ -227,8 +238,9 @@ public class Database {
             try (PreparedStatement preparedStatement = conn.prepareStatement(sql)) {
                 preparedStatement.setDouble(1, amount);
                 preparedStatement.setString(2, desc);
-                preparedStatement.setString(3, articleID);
-                preparedStatement.setString(4, subArticleID);
+                preparedStatement.setInt(3, layer);
+                preparedStatement.setString(4, articleID);
+                preparedStatement.setString(5, subArticleID);
                 preparedStatement.execute();
 
             } catch (SQLException e) {
@@ -293,7 +305,7 @@ public class Database {
             statement.setString(2, subArticleID);
             ResultSet rs = statement.executeQuery();
             if (rs.next()) {
-                return new SubArticleRelation(rs.getString("note"), rs.getString("ZSB"), rs.getString("ITEMNUMBER"), rs.getDouble("MENGE"));
+                return new SubArticleRelation(rs.getString("note"), rs.getString("ZSB"), rs.getString("ITEMNUMBER"), rs.getDouble("MENGE"), rs.getInt("EBENE"));
             }
 
 
@@ -306,5 +318,51 @@ public class Database {
 
     }
 
+    public static void recursiveProductSearchRootFast(String rootArticleID) {
 
+        Connection conn = ConnectionManager.getConnection();
+        String query = "SELECT * FROM PART_LI con JOIN FKT_PRODUCT pro on(pro.ITEMNUMBER = con.ITEMNUMBER) where con.ZSB =? and pro.deleted=false ";
+        Article valueItem, valueContains;
+
+
+        try (PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, rootArticleID);
+            ResultSet rs = stmt.executeQuery();
+
+
+            while (rs.next()) {
+
+                String item = "ZSB";
+                String contains = "ITEMNUMBER";
+                String amount = "MENGE";
+                String desc = "note";
+                String layer = "EBENE";
+                valueItem = articleHashMap.get(rs.getString(item));
+                valueContains = articleHashMap.get(rs.getString(contains));
+
+                if (valueItem == null) {
+                    articleHashMap.put(rs.getString(item), new Article(rs.getString(item), rs.getDouble(amount), rs.getString(desc), rs.getInt(layer)));
+                    valueItem = articleHashMap.get(rs.getString(item));
+
+                }
+                if (valueContains == null) {
+                    articleHashMap.put(rs.getString(contains), new Article(rs.getString(contains), rs.getDouble(amount), rs.getString(desc), rs.getInt(layer)));
+                    valueContains = articleHashMap.get(rs.getString(contains));
+                }
+
+                //Adds SubArticle to Article
+                valueItem.addSubItem(valueContains);
+
+                //System.out.println("ITEMNUMBER: " + rs.getString(item) + " contains " + rs.getString(contains));
+                recursiveProductSearchRootFast(rs.getString(contains));
+
+            }
+
+
+        } catch (SQLException e) {
+            e.printStackTrace();
+
+        }
+
+    }
 }

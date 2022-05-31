@@ -5,12 +5,14 @@ public class SubArticleRelation {
     private String itemNumber;
     private String subItemNumber;
     private double amount;
+    private int layer;
 
-    public SubArticleRelation(String description, String itemNumber, String subItemNumber, double amount) {
+    public SubArticleRelation(String description, String itemNumber, String subItemNumber, double amount, int layer) {
         this.description = description;
         this.itemNumber = itemNumber;
         this.subItemNumber = subItemNumber;
         this.amount = amount;
+        this.layer = layer;
     }
 
     public SubArticleRelation() {
@@ -46,5 +48,13 @@ public class SubArticleRelation {
 
     public void setAmount(double amount) {
         this.amount = amount;
+    }
+
+    public int getLayer() {
+        return layer;
+    }
+
+    public void setLayer(int layer) {
+        this.layer = layer;
     }
 }

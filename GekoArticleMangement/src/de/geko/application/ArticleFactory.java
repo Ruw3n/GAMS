@@ -19,7 +19,7 @@ import java.util.TreeMap;
 public class ArticleFactory {
 
     private final String spacing = "\t";
-    private final String[] defaultHeader = {"Artikelnummner", "Artikelname", "Anzahl", "Hinweis", "Lagerbestand", "Einheit", "Preis", "Einkaufspreis", "Preissumme", "Einkauspreissumme"};
+    private final String[] defaultHeader = {"Artikelnummner", "Artikelname", "Anzahl", "Hinweis", "Ebene", "Lagerbestand", "Einheit", "Preis", "Einkaufspreis", "Preissumme", "Einkauspreissumme"};
     private Article rootArticle;
     private String indentation = "\t";
     private ArrayList<String[]> dataAll = new ArrayList<>();
@@ -28,6 +28,11 @@ public class ArticleFactory {
     private boolean isRoot = true;
     private TreeMap<String, ArrayList<String>> deleteMap = new TreeMap<>();
     private HashMap<Integer, Article> orderItems = new HashMap<>();
+    private ArrayList<Article> articlesLessZero = new ArrayList<>();
+
+    public ArrayList<Article> getArticlesInvLessZero() {
+        return articlesLessZero;
+    }
 
 
     public ArticleFactory(Article rootArticle) {
@@ -40,7 +45,6 @@ public class ArticleFactory {
     }
 
     /**
-     * TODO: Add COSTPRICE and TOTALPRICE for only all Subarticles
      */
     private void generateCSVFile(File csvFile) {
         try {
@@ -73,9 +77,25 @@ public class ArticleFactory {
      *
      * @param csvFile
      */
-    public void createHierarchyItemCSV(File csvFile) {
+    public void createHierarchyItemCSV(File csvFile, int layer) {
         dataAll.clear();
-        addFirstLevelData();
+        rootArticle.setAmount(1);
+        totalPrice = 0.0 + rootArticle.getPrice1();
+        totalCostprice = 0.0 + rootArticle.getCostPrice();
+        for (Article a : rootArticle.getSubArticle()) {
+            totalPrice += a.getPrice1() * a.getAmount();
+            totalCostprice += a.getCostPrice() * a.getAmount();
+            if (layer >= a.getLayer()) {
+                dataAll.add(getColumn(a, 1));
+
+            }
+
+            if (a.getSubArticle().size() > 0) {
+                addRecursiveData(a, layer);
+
+            }
+
+        }
         generateCSVFile(csvFile);
 
 
@@ -87,14 +107,14 @@ public class ArticleFactory {
      *
      * @param csvFile
      */
-    public void createOrderListCSV(File csvFile) {
+    public void createOrderListCSV(File csvFile, int layer) {
         dataAll.clear();
         orderItems.clear();
         totalPrice = 0.0 + rootArticle.getPrice1();
         totalCostprice = 0.0 + rootArticle.getCostPrice();
         rootArticle.setAmount(1);
 
-        fillOrderRecursive(rootArticle);
+        fillOrderRecursive(rootArticle, layer);
         for (Map.Entry<Integer, Article> set : orderItems.entrySet()) {
             totalCostprice += set.getValue().getCostPrice() * set.getValue().getAmount();
             totalPrice += set.getValue().getPrice1() * set.getValue().getAmount();
@@ -112,42 +132,24 @@ public class ArticleFactory {
      *
      * @param article
      */
-    private void fillOrderRecursive(Article article) {
+    private void fillOrderRecursive(Article article, int layer) {
         for (Article a : article.getSubArticle()
         ) {
-            if (orderItems.containsKey(a.hashCode())) {
-                orderItems.get(a.hashCode()).setAmount(a.getAmount() + orderItems.get(a.hashCode()).getAmount());
-            } else {
-                orderItems.put(a.hashCode(), new Article(a));
+            if (layer >= a.getLayer()) {
+                if (orderItems.containsKey(a.hashCode())) {
+                    orderItems.get(a.hashCode()).setAmount(a.getAmount() + orderItems.get(a.hashCode()).getAmount());
+                } else {
+                    orderItems.put(a.hashCode(), new Article(a));
+                }
             }
             if (a.getSubArticle().size() > 0) {
-                fillOrderRecursive(a);
+                fillOrderRecursive(a, layer);
             }
 
         }
 
     }
 
-    /**
-     * get frist level articles, and do recursive search
-     */
-    private void addFirstLevelData() {
-
-        rootArticle.setAmount(1);
-        totalPrice = 0.0 + rootArticle.getPrice1();
-        totalCostprice = 0.0 + rootArticle.getCostPrice();
-
-        for (Article a : rootArticle.getSubArticle()) {
-
-            totalPrice += a.getPrice1() * a.getAmount();
-            totalCostprice += a.getCostPrice() * a.getAmount();
-
-            dataAll.add(getColumn(a, 1));
-            if (a.getSubArticle().size() > 0) {
-                addRecursiveData(a);
-            }
-        }
-    }
 
     /**
      * Do recursive search to get all articles and their sub articles.
@@ -155,17 +157,20 @@ public class ArticleFactory {
      *
      * @param article
      */
-    private void addRecursiveData(Article article) {
+    private void addRecursiveData(Article article, int layer) {
         int newLength;
         for (Article a : article.getSubArticle()) {
 
             totalPrice += a.getPrice1() * a.getAmount();
             totalCostprice += a.getCostPrice() * a.getAmount();
-            dataAll.add(getColumn(a, 2));
+            if (layer >= a.getLayer()) {
+                dataAll.add(getColumn(a, 2));
 
-            if (a.getSubArticle().size() > 0) {
+            }
+
+            if (a.getSubArticle().size() > 0 && layer >= a.getLayer()) {
                 indentation += spacing;
-                addRecursiveData(a);
+                addRecursiveData(a, layer);
                 newLength = indentation.length() - spacing.length();
                 if (newLength > 0) indentation = indentation.substring(0, newLength);
             }
@@ -236,12 +241,13 @@ public class ArticleFactory {
         column[1] = article.getName() + "";
         column[2] = article.getAmount() + "";
         column[3] = handelNullString(article.getSubArticleDescription());
-        column[4] = article.getQuantity() + "";
-        column[5] = article.getQuantityUnit();
-        column[6] = article.getPrice1() + "";
-        column[7] = article.getCostPrice() + "";
-        column[8] = Math.round(article.getTotalPrice() * 100.0) / 100.0 + "";
-        column[9] = Math.round(article.getTotalCostPrice() * 100.0) / 100.0 + "";
+        column[4] = article.getLayer() + "";
+        column[5] = article.getQuantity() + "";
+        column[6] = article.getQuantityUnit();
+        column[7] = article.getPrice1() + "";
+        column[8] = article.getCostPrice() + "";
+        column[9] = Math.round(article.getTotalPrice() * 100.0) / 100.0 + "";
+        column[10] = Math.round(article.getTotalCostPrice() * 100.0) / 100.0 + "";
 
 
         String s;
@@ -275,6 +281,7 @@ public class ArticleFactory {
     public void removeFromInventory(Article rootArticle) {
         if (isRoot) {
             isRoot = false;
+            articlesLessZero.clear();
             for (Article article : rootArticle.getSubArticle()
             ) {
                 removeFromInventory(article);
@@ -282,6 +289,9 @@ public class ArticleFactory {
         } else {
 
             rootArticle.setQuantity(rootArticle.getQuantity() - rootArticle.getAmount());
+            if (rootArticle.getQuantity() < 0.0) {
+                articlesLessZero.add(rootArticle);
+            }
             rootArticle.updateArticle();
             for (Article article : rootArticle.getSubArticle()
             ) {

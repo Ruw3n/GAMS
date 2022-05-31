@@ -19,6 +19,7 @@ public class Article {
     private String quantityUnit, name, description, note, supplierNumber, modifiedBy, category, subArticleDescription;
     private Date dateAdded, dateModified;
     private long categoryID;
+    private int layer;
 
     public Article(Article article) {
         this.articleID = article.articleID;
@@ -43,6 +44,8 @@ public class Article {
         this.dateAdded = article.dateAdded;
         this.dateModified = article.dateModified;
         this.categoryID = article.categoryID;
+        this.layer = article.layer;
+
     }
 
     public Article(String articleID) {
@@ -57,10 +60,11 @@ public class Article {
      * @param amount
      * @param subArticleDescription
      */
-    public Article(String articleID, double amount, String subArticleDescription) {
+    public Article(String articleID, double amount, String subArticleDescription, int layer) {
         this.articleID = articleID;
         this.subArticleDescription = subArticleDescription;
-        setAmount(amount);
+        this.amount = amount;
+        this.layer = layer;
         getAllAttributes();
     }
 
@@ -252,6 +256,14 @@ public class Article {
             e.printStackTrace();
         }
 
+    }
+
+    public int getLayer() {
+        return layer;
+    }
+
+    public void setLayer(int layer) {
+        this.layer = layer;
     }
 
     public double getTotalCostPrice() {
